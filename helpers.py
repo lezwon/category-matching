@@ -83,14 +83,14 @@ def restart_phantomjs():
     time.sleep(5)
     os.system("sudo pkill -9 phantomjs")
     os.system("nohup phantomjs phantomjs_fetcher.js 1234 &")
-    time.sleep(10)
+    time.sleep(3)
 
 
 def get_random_cities(count):
     restart_phantomjs()
     url = "https://www.randomlists.com/random-world-cities?qty={}#".format(count)
     response = fetcher.phantomjs_fetch(url)
-    soup = BeautifulSoup(response['content'])
+    soup = BeautifulSoup(response['content'], 'html.parser')
     cities = soup.select(".rand_medium")
     countries = soup.select(".rand_small")
     return ["{}, {}".format(city.get_text(), country.get_text()) for city, country in zip(cities, countries)]
@@ -113,11 +113,9 @@ def fetch_businesses(category):
 # map those categories to businesses
 
 def fetch_businesses_from_list(matches):
-    global cities
     mapping = {}
-    cities = get_random_cities(10)
     for i, category in enumerate(matches):
-        if i % 8 == 0:
+        if i % 3 == 0:
             restart_phantomjs()
         business_list = fetch_businesses(category)
         mapping.update({category: business_list})
@@ -212,22 +210,24 @@ def load_results(filename):
             results.append(row)
     return results
 
-
-def get_facebook_category(category, biz_name):
-    results = google.search("{} facebook".format(entry))
-    if not results:
-        return []
-
+           
+def get_facebook_category(biz_name):
+    results = google.search("{} facebook".format(biz_name))
+    if not results: return []
+    
     for result in results:
-        if result.link and 'facebook' in result.link:
+        if result.link and 'facebook.com' in result.link:
             link = result.link
-            link.replace('www', 'm')
+            link = link.replace('www','touch')
+#             print(link)
             response = requests.get(link)
             soup = BeautifulSoup(response.text)
             try:
-                return [span.get_text() for span in soup.select('._1j-g span')]
+                return [span.get_text() for span in soup.select('._59k._2rgt._1j-f._2rgt ._1j-g span')]
             except:
+#                 return category, [soup.select('div._59k._2rgt._1j-f._2rgt')[1].get_text()]
                 return []
+    return []
 
 
 def get_matching_categories(google_mapping, partner_mapping):
