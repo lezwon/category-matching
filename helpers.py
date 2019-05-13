@@ -112,7 +112,6 @@ def fetch_biz_for_city(category, city):
     response = fetch_response(url)
     soup = BeautifulSoup(response, 'html.parser')
     bizs = [element.get_text() for element in soup.select("div[role=heading]")]
-    print(bizs)
     return bizs
 
 def fetch_businesses(category):

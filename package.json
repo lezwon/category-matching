@@ -17,6 +17,7 @@
   },
   "homepage": "https://github.com/lezwon/category-matching#readme",
   "dependencies": {
+    "denque": "^1.4.1",
     "phantom-pool": "^1.2.2",
     "zlib": "^1.0.5"
   }

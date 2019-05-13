@@ -57,7 +57,7 @@ const benchmark = async (iters) => {
   console.log('Starting benchmark with pool')
   for (let i = 0; i < iters; i++) {
     console.time(`pool-${i}`)
-    await withPool(`${url}/${i}`)
+    withPool(`${url}/${i}`)
     console.timeEnd(`pool-${i}`)
   }
   console.log('Done')
