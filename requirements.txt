@@ -8,6 +8,7 @@ unidecode
 vcrpy
 future
 fake-useragent
-git+https://github.com/abenassi/Google-Search-API
+git+https://github.com/lezwon/Google-Search-API
 matplotlib
 pandas
+pycurl

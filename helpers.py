@@ -24,12 +24,11 @@ import requests
 from tornado_fetcher import Fetcher
 from bs4 import BeautifulSoup
 import re
+from random import randint
 
 pattern = re.compile("[\w]+")
 columns=['google_categories','partner_categories']
 cities = ['', 'Sydney, Australia', 'Toronto, Canada', 'London, England', 'Bengaluru, India', 'Auckland, New Zealand', 'Florida, United States']
-
-fetcher = initialize_fetcher()
 
 def get_data(filepath):
     with open(filepath, "r", encoding="utf-8") as file:
@@ -70,13 +69,17 @@ def get_synonyms(category):
     return [d['word'] for d in data][:5]
 
 
+fetcher = None
+
 def initialize_fetcher():
-    return Fetcher(
-        user_agent='Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36',  # user agent
-        phantomjs_proxy='http://localhost:1234',  # phantomjs url
-        pool_size=10,  # max httpclient num
-        async=False
-    )
+    if fetcher is None:
+        fetcher =  Fetcher(
+            user_agent='Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36',  # user agent
+            phantomjs_proxy='http://localhost:3000',  # phantomjs url
+            pool_size=10,  # max httpclient num
+            async=True
+        )
+    return fetcher
 
 
 def restart_phantomjs():
@@ -85,41 +88,68 @@ def restart_phantomjs():
     os.system("nohup phantomjs phantomjs_fetcher.js 1234 &")
     time.sleep(3)
 
+def fetch_response(url):
+    # print(url)
+    time.sleep(randint(1,4))
+    link = "http://localhost:3000/?url=" + url
+    content = requests.get(link).text
+    # print(content)
+    return content
 
 def get_random_cities(count):
-    restart_phantomjs()
+    # restart_phantomjs()
     url = "https://www.randomlists.com/random-world-cities?qty={}#".format(count)
-    response = fetcher.phantomjs_fetch(url)
-    soup = BeautifulSoup(response['content'], 'html.parser')
+    response = fetch_response(url)
+    soup = BeautifulSoup(response, 'html.parser')
     cities = soup.select(".rand_medium")
     countries = soup.select(".rand_small")
     return ["{}, {}".format(city.get_text(), country.get_text()) for city, country in zip(cities, countries)]
 
+def fetch_biz_for_city(category, city):
+    url = 'https://www.google.com/search?tbm=lcl&q={} {}'.format(category, city)
+    print(url)
+    # response = fetcher.phantomjs_fetch(url)
+    response = fetch_response(url)
+    soup = BeautifulSoup(response, 'html.parser')
+    bizs = [element.get_text() for element in soup.select("div[role=heading]")]
+    print(bizs)
+    return bizs
 
 def fetch_businesses(category):
-    fetcher = initialize_fetcher()
+    # fetcher = initialize_fetcher()
     biz_list = []
+    pool=Pool()
     category = quote_plus(re.sub(r'[^\x00-\x7f]', '', category))
+    args = [(category, city) for city in cities]
+    pool.map_async(fetch_biz_for_city, args, callback=lambda result: biz_list.append(result))
+    
+    '''
     for city in cities:
         url = 'https://www.google.com/search?tbm=lcl&q={} {}'.format(category, city)
-#         print(url)
-        response = fetcher.phantomjs_fetch(url)
-        soup = BeautifulSoup(response['content'], 'html.parser')
+        print(url)
+        # response = fetcher.phantomjs_fetch(url)
+        response = fetch_response(url)
+        soup = BeautifulSoup(response, 'html.parser')
         biz = [element.get_text() for element in soup.select("div[role=heading]")]
-    biz_list += biz
-    return biz_list
+    '''
+    # biz_list += biz
+    return { category: biz_list }
 
 
 # map those categories to businesses
 
 def fetch_businesses_from_list(matches):
     mapping = {}
-    for i, category in enumerate(matches):
-        if i % 3 == 0:
-            restart_phantomjs()
-        business_list = fetch_businesses(category)
-        mapping.update({category: business_list})
-        print(i, category)
+    pool=Pool()
+    pool.map_async(fetch_businesses, matches, callback=lambda result: {mapping.update(item) for item in result})
+    print(mapping)
+    # for i, category in enumerate(matches):
+    #     # if i % 3 == 0:
+    #         # restart_phantomjs()
+    #     business_list = fetch_businesses(category)
+        
+    #     mapping.update({category: business_list})
+    #     print(i, category)
     return mapping
 
 
@@ -145,15 +175,15 @@ def load_categories(filename):
 
 
 def fetch_business_categories(category):
-    fetcher = initialize_fetcher()
+    # fetcher = initialize_fetcher()
     category_list = []
     formatted_category = quote_plus(re.sub(r'[^\x00-\x7f]', '', category))
     for city in cities:
         url = 'https://www.google.co.in/search?tbm=lcl&q={} {}'.format(formatted_category, city)
     #         url = "https://www.google.com/search?tbm=lcl&q=zoo"
         #         print(url)
-        response = fetcher.phantomjs_fetch(url)
-        soup = BeautifulSoup(response['content'])
+        response = fetch_response(url)
+        soup = BeautifulSoup(response)
 
         try:
             categories = [element.select("div:nth-of-type(1)")[0].get_text().split('·')[-1].strip().lower() for element in soup.find_all("span", class_="rllt__details")]
@@ -190,8 +220,8 @@ def get_parent_category(category_map):
 def fetch_categories_from_list(difference, file):
     parent_categories = []
     for i, category in enumerate(difference):
-        if i % 3 == 0:
-            restart_phantomjs()
+        # if i % 3 == 0:
+            # restart_phantomjs()
         category_list = fetch_business_categories(category)
         parent_categories.append(category_list)
         print("{}".format(category))
@@ -221,7 +251,7 @@ def get_facebook_category(biz_name):
             link = link.replace('www','touch')
 #             print(link)
             response = requests.get(link)
-            soup = BeautifulSoup(response.text)
+            soup = BeautifulSoup(response)
             try:
                 return [span.get_text() for span in soup.select('._59k._2rgt._1j-f._2rgt ._1j-g span')]
             except:

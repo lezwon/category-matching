@@ -117,6 +117,8 @@ if (system.args.length !== 2) {
       }
     }, page.settings.resourceTimeout, page);
 
+    console.log(fetch.data)
+
     // send request
     page.open(fetch.url, {
       operation: fetch.method,
