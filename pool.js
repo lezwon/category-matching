@@ -5,12 +5,12 @@ const Denque = require("denque");
 
 // Returns a generic-pool instance
 const pool = createPhantomPool({
-  max: 10, // default
-  min: 5, // default
+  max: 20, // default
+  min: 15, // default
   // how long a resource can stay idle in pool before being removed
   idleTimeoutMillis: 30000, // default.
   // maximum number of times an individual resource can be reused before being destroyed; set to 0 to disable
-  maxUses: 24, // default
+  maxUses: 100, // default
   // function to validate an instance prior to use; see https://github.com/coopernurse/node-pool#createpool
   validator: () => Promise.resolve(true), // defaults to always resolving true
   // validate resource before borrowing; required for `maxUses and `validator`
@@ -57,9 +57,9 @@ async function withPool (url, response) {
     })
     page.open(url, { operation: 'GET' }).then((status) => {
       console.log(status)
-      console.log("Done " + url)
       return page.property('content')
     }).then(result => {
+      console.log("Done " + url)
       response.write(result)
       response.end()
     })

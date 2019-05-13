@@ -112,15 +112,15 @@ def fetch_biz_for_city(category, city):
     response = fetch_response(url)
     soup = BeautifulSoup(response, 'html.parser')
     bizs = [element.get_text() for element in soup.select("div[role=heading]")]
-    return bizs
+    categories = [element.select("div:nth-of-type(1)")[0].get_text().split('·')[-1].strip().lower() for element in soup.find_all("span", class_="rllt__details")]
+    return [{ 'name': biz, 'category': cat , 'city': city} for biz, cat in zip(bizs, categories)]
 
 def fetch_businesses(category):
     # fetcher = initialize_fetcher()
-    biz_list = []
     pool=Pool()
     category = quote_plus(re.sub(r'[^\x00-\x7f]', '', category))
     args = [(category, city) for city in cities]
-    pool.map_async(fetch_biz_for_city, args, callback=lambda result: biz_list.append(result))
+    biz_list = pool.starmap(fetch_biz_for_city, args)
     
     '''
     for city in cities:
@@ -140,8 +140,7 @@ def fetch_businesses(category):
 def fetch_businesses_from_list(matches):
     mapping = {}
     pool=Pool()
-    pool.map_async(fetch_businesses, matches, callback=lambda result: {mapping.update(item) for item in result})
-    print(mapping)
+    mapping = list(map(fetch_businesses, matches))
     # for i, category in enumerate(matches):
     #     # if i % 3 == 0:
     #         # restart_phantomjs()
